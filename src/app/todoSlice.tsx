@@ -1,11 +1,12 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
-
+import { Dayjs } from "dayjs";
 interface ITodo {
   id: string;
   title: string;
   description: string;
   isCompleted: boolean;
+  date: Dayjs | null;
 }
 interface ITodoList {
   todoList: ITodo[];

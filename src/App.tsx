@@ -14,20 +14,27 @@ import uuid from "react-uuid";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import { useDispatch, useSelector } from "react-redux";
+import dayjs, { Dayjs } from "dayjs";
+import { DemoContainer } from "@mui/x-date-pickers/internals/demo";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { selectTempTodoList, selectTodoList, setTempTodoList, setTodoList } from "./app/todoSlice";
 interface ITodo {
   id: string;
   title: string;
   description: string;
   isCompleted: boolean;
+  date: Dayjs | null;
 }
-type TFilter = "all" | "complete" | "incomplete";
+type TFilter = "all" | "complete" | "incomplete" | "overdue";
 
 function App() {
   const dispatch = useDispatch();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [date, setDate] = React.useState<Dayjs | null>(dayjs(new Date()));
   const [isErrorMessage, setIsErrorMessage] = useState(false);
   const [filter, setFilter] = useState<TFilter>("all");
   const [didMount, setDidMount] = useState(false);
@@ -58,6 +65,7 @@ function App() {
     if (Array.isArray(tempTodoList) && tempTodoList.length > 0) {
       localStorage.setItem("listTodo", JSON.stringify(tempTodoList));
     }
+    console.log("tempTodoList:", tempTodoList);
   }, [tempTodoList]);
 
   useEffect(() => {
@@ -66,8 +74,10 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title]);
+
   useEffect(() => {
     if (!Array.isArray(todoList)) return;
+
     switch (filter) {
       case "all":
         dispatch(setTodoList(tempTodoList));
@@ -78,18 +88,30 @@ function App() {
       case "incomplete":
         dispatch(setTodoList(tempTodoList.filter((todo: ITodo) => todo.isCompleted === false)));
         break;
+      case "overdue":
+        dispatch(
+          setTodoList(
+            tempTodoList.filter((todo: ITodo) => {
+              if (todo.date && !todo.isCompleted) {
+                return dayjs(todo.date).isBefore(dayjs(new Date()));
+              }
+              return false;
+            })
+          )
+        );
+        break;
       default:
         break;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
-
   const handleAddToDoList = () => {
     const objectTodo = {
       id: uuid(),
       title: title,
       description: description,
       isCompleted: false,
+      date: dayjs(date).format("DD/MM/YYYY"),
     };
     if (title !== "") {
       dispatch(setTodoList([...todoList, objectTodo]));
@@ -97,6 +119,7 @@ function App() {
 
       setTitle("");
       setDescription("");
+      setDate(dayjs(new Date()));
     } else {
       setIsErrorMessage(true);
     }
@@ -105,11 +128,11 @@ function App() {
     setFilter(event.target.value as TFilter);
   };
   const handleDeleteTodo = (id: string) => {
-    dispatch(setTodoList([...todoList.filter((todo: any) => todo.id !== id)]));
-    dispatch(setTempTodoList([...tempTodoList.filter((todo: any) => todo.id !== id)]));
+    dispatch(setTodoList([...todoList.filter((todo: ITodo) => todo.id !== id)]));
+    dispatch(setTempTodoList([...tempTodoList.filter((todo: ITodo) => todo.id !== id)]));
   };
   const handleChangeCheckbox = (event: React.ChangeEvent<HTMLInputElement>, id: string) => {
-    const updateTodoList = todoList.map((todo: any) => {
+    const updateTodoList = todoList.map((todo: ITodo) => {
       if (todo.id === id) {
         return { ...todo, isCompleted: event.target.checked };
       } else {
@@ -156,6 +179,11 @@ function App() {
               </Button>
             </div>
           </div>
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DemoContainer components={["DatePicker", "DatePicker"]}>
+              <DatePicker label="Date" value={date} onChange={(newValue) => setDate(newValue)} />
+            </DemoContainer>
+          </LocalizationProvider>
 
           <div className="flex flex-col gap-4 mt-4 ">
             <Box sx={{ minWidth: 120 }}>
@@ -169,6 +197,7 @@ function App() {
                 <MenuItem value={"all"}>All</MenuItem>
                 <MenuItem value={"complete"}>Completed</MenuItem>
                 <MenuItem value={"incomplete"}>Incompleted</MenuItem>
+                <MenuItem value={"overdue"}>Overdue</MenuItem>
               </Select>
             </Box>
             {Array.isArray(todoList) &&
@@ -192,6 +221,7 @@ function App() {
                         <p>{todo?.title}</p>
                         <p className="text-xs">{todo?.description}</p>
                       </div>
+                      <p>{todo?.date}</p>
                     </div>
                     <FontAwesomeIcon
                       icon={faXmark}
